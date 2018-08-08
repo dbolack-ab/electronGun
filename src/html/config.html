@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>electronGun Configuration</title>
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../css/photon.css">
+
+    <!-- Electron Javascript -->
+    <script src="../js/config_include.js" charset="utf-8"></script>
+  </head>
+
+  <body>
+    <!-- Wrap your entire app inside .window -->
+    <div class="window">
+      <!-- .toolbar-header sits at the top of your app -->
+      <header class="toolbar toolbar-header">
+        <h1 class="title">electronGun Configuration</h1>
+      </header>
+
+      <!-- Your app's content goes inside .window-content -->
+      <div class="window-content">
+        <div class="padded-more">
+          <h1>Configuration</h1>
+          <dl>
+            <dt>Public API Key</dt><dd><input id="pubkey"></dd>
+            <dt>Private API Key</dt><dd><input id="apikey"></dd>
+          </dl>
+          <button id="configRevert" value="Revert" onClick="configRevert();">Revert</button>&nbsp;&nbsp;<button id="configChange" value="Save" onClick="configChange();">Save</button>&nbsp;&nbsp;<button id="configClose" value="Close" onClick="configClose();">Close</button>
+
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
