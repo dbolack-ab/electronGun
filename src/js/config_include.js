@@ -6,7 +6,6 @@ var backupSettings = {};
 // Events the config window listens For
 ipc.on('loadform', function (event, arg) {
     // Bundle up the form values as the settings object and send it back.
-    console.log('Updating:' + JSON.stringify( arg ) )
     if( arg.hasOwnProperty('pubkey') ) {
       backupSettings.pubkey = arg.pubkey;
     }

@@ -2,22 +2,44 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title></title>
-    <script src="../js/listView_include.js" charset="utf-8"></script>
+    <link rel="stylesheet" href="../css/photon.css">
+    <link rel="stylesheet" href="../css/default.css">
   </head>
   <body>
+    <body class="mainBody">
+    <div class="mainHeader">
+      <header class="toolbar toolbar-header">
+        <div class="toolbar-actions">
+          <div class="btn-group">
+            <button id="btn_sendemail" class="btn btn-large btn-default"><span class="icon icon-book"></span></button>
+          </div>
+          <button id="btn_close" class="btn btn-large btn-default pull-right"><span class="icon icon-cancel-squared"></span></button>
+          <button id="btn_maximize" class="btn btn-large btn-default pull-right"><span class="icon icon-plus"></span></button>
+          <button id="btn_minimize" class="btn btn-large btn-default pull-right"><span class="icon icon-minus"></span></button>
+          <button id="btn_tray" class="btn btn-large btn-default pull-right"><span class="icon icon-install"></span></button>
+        </div>
+      </header>
+    </div>
+    <div id="mainDisplayArea" class="mainDisplayArea">
     <h2 id="listname"></h2>
-      <table id="userList">
+      <table id="userList" class="table-striped" style="width:100%">
       <thead style="display: block">
         <tr>
-          <th>Email Address</th>
+          <th>Email Address</th><th>Name</th>
         </tr>
       </thead>
-      <tbody style="overflow-y:scroll; display: block; height: 280px; width: 780px">
+      <tbody style="overflow-y:scroll; overflow-x: hidden; display: block; height: 280px;">
       </tbody>
     </table>
     <br />
     <br />
     <button id="resyncButton" onClick="reSync()">Resync</button>&nbsp;&nbsp;<button id="closeButton" onClick="closeList()">close</button>
+  </div>
+  <div class="mainFooter">
+    <footer class="toolbar toolbar-footer">
+      <h1 class="title">Footer</h1>
+    </footer>
+  </div>
+  <script src="../js/listView_include.js" charset="utf-8"></script>
   </body>
 </html>

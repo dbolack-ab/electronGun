@@ -12,6 +12,7 @@ const waterfall = lazyRequire('async-waterfall');
 const path = lazyRequire('path');
 
 
+
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) { // eslint-disable-line global-require
   app.quit();
@@ -40,7 +41,7 @@ function setupMainWindow() {
     initializeSettings();
   }
   else {
-    console.log( 'Loading config from ' + settings.file() );
+    console.log( 'Loading electronGun Settings from ' + settings.file() );
     backupSettings = settings.getAll();
   }
 
@@ -120,6 +121,7 @@ function setupMainWindow() {
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
     windows['splashWindow'].close();
+    loadLists();
   })
 
 
@@ -127,7 +129,7 @@ function setupMainWindow() {
     isQuitting = true;
     // Force close the hidden windows.
     // For some reason, this won't forEach();
-    windows['configWindow'].close();
+    windows['ConfigWindow'].close();
     windows['listEditWindow'].close();
   });
 
@@ -143,7 +145,7 @@ function setupMainWindow() {
 
 function setupListEditWindow() {
   // Create the browser window.
-  windows['listEditWindow'] = new BrowserWindow({width: 800, height: 400, frame: false, show: false });
+  windows['listEditWindow'] = new BrowserWindow({width: 800, height: 465, frame: false, show: false });
 
   // and load the index.html of the app.
   windows['listEditWindow'].loadURL('file://' + __dirname + '/html/listView.html');
@@ -165,29 +167,29 @@ function setupListEditWindow() {
 
 function setupConfigurationWindow() {
   // Create the browser window.
-  windows['configWindow'] = new BrowserWindow({width: 800, height: 400, frame: false, show: false });
+  windows['ConfigWindow'] = new BrowserWindow({width: 800, height: 400, frame: false, show: false });
 
   // and load the index.html of the app.
-  windows['configWindow'].loadURL('file://' + __dirname + '/html/config.html');
+  windows['ConfigWindow'].loadURL('file://' + __dirname + '/html/config.html');
 
-  windows['configWindow'].on('onbeforeunload', function (e) {
+  windows['ConfigWindow'].on('onbeforeunload', function (e) {
     if( !isQuitting ){
       e.preventDefault();
-      windows['configWindow'].hide();
+      windows['ConfigWindow'].hide();
       e.returnValue = false;  // this will *prevent* the closing no matter what value is passed
     }
   });
 
-  windows['configWindow'].on('closed', function () {
-      windows['configWindow'] = null;
+  windows['ConfigWindow'].on('closed', function () {
+      windows['ConfigWindow'] = null;
   });
 
 }
 
 function openConfiguration() {
-  windows['configWindow'].webContents.send('loadform', settings.getAll());
-  windows['configWindow'].show();
-  windows['configWindow'].webContents.openDevTools();
+  windows['ConfigWindow'].webContents.send('loadform', settings.getAll());
+  windows['ConfigWindow'].show();
+  windows['ConfigWindow'].webContents.openDevTools();
 }
 
 function showSplash( ) {
@@ -215,40 +217,68 @@ function createTimeoutPromise ( timeOut, passedValue, actions ) {
 }
 
 function setupIPCListeners() {
-  ipcMain.on('updateConfig', function (event, arg) {
-    windows['configWindow'].hide();
+
+  // Main Panel Buttons
+  ipcMain.on('btn_config', function (event, arg) {
+    openConfiguration();
+  });
+
+  ipcMain.on('updateElectronGunSettings', function (event, arg) {
+    windows['ConfigWindow'].hide();
     settings.set('pubkey', arg.pubkey );
     settings.set('apikey', arg.apikey );
   });
 
-  ipcMain.on('closeConfig', function (event, arg ) {
-    windows['configWindow'].hide();
-  });
-
-  ipcMain.on('loadLists', function ( event, arg ) {
-    pullLists();
+  ipcMain.on('closeElectronGunSettings', function (event, arg ) {
+    windows['ConfigWindow'].hide();
   });
 
   ipcMain.on('launchEdit', function( event, arg ) {
-    arg.config = settings.getAll();
+    arg.electronGunSettings = settings.getAll();
     windows['listEditWindow'].show();
     windows['listEditWindow'].webContents.openDevTools();
     let lists = loki.db.getCollection('lists');
-    var results = lists.find( {listName: arg.listName} );
+    var results = lists.find( {address: arg.address} );
     if( results.length > 0 ) {
       arg.membersList = results[0].members;
     }
+    arg.members_count = results[0].members_count;
+    arg.name = results[0].name;
     windows['listEditWindow'].webContents.send('loadList', arg);
 
+  });
+
+  ipcMain.on('fetchElectronGunSettings', function(event, arg) {
+    mainWindow.webContents.send('passedElectronGunSettings', settings.getAll());
   });
 
   ipcMain.on('closeListWindow', function( event, arg ) {
     windows['listEditWindow'].hide();
   });
 
+  ipcMain.on( 'syncedMailingLists', function( event, arg ) {
+    let lists = loki.db.getCollection('lists');
+    arg.forEach( function(list) {
+      var results = lists.find( {address: list.address} );
+      if( results.length > 0 ) {
+        results[0].name = arg.name;
+        lists.update( results[0] );
+      } else {
+        lists.insert( list );
+      }
+    })
+  });
+
   ipcMain.on('storeListMembers', function( event, arg ) {
     let lists = loki.db.getCollection('lists');
-    lists.insert( arg )
+    var results = lists.find( {address: arg.address} );
+    if( results.length > 0 ) {
+      results[0].members = arg.members;
+      lists.update( results[0] );
+    } else {
+      lists.insert( arg );
+    }
+
   });
 }
 
@@ -288,9 +318,6 @@ function setupApp() {
         setupIPCListeners();
         cb(null);
       });
-    },
-    function(cb) {
-      loadLists();
     }
   ], null);
 }
@@ -299,23 +326,9 @@ function loadLists()
 {
   let lists = loki.db.getCollection('lists');
   var results = lists.find( {} );
-  console.log( results.length );
   if ( results.length > 0 ) {
-    results.forEach( function(res) {
-      console.log( JSON.stringify( res.listName ) );
-    });
-  }
-}
-
-function iterateLists( mg, res ) {
-  console.log( res )
-  // mg.get('/lists', {}, iterateLists )
-}
-
-function pullLists() {
-  let config = settings.getAll();
-  console.log(config);
-  if( config.hasOwnProperty('apikey') && config.hasOwnProperty('pubkey') ) {
+    console.log( "Sending " + results );
+    mainWindow.webContents.send('loadedLists', results );
   }
 }
 

@@ -3,22 +3,48 @@ const ipc = require('electron').ipcRenderer
 const mg = require('mailgun-es6');
 
 var mailgun;
-var list;
+var mailingList;
 var listObject;
 var members = [];
 
+let headerButtons = [ "btn_sendemail", "btn_close", "btn_maximize", "btn_minimize", "btn_tray" ];
+
+for ( var bLoop = 0; bLoop < headerButtons.length; bLoop++)
+{
+  document.getElementById(headerButtons[ bLoop ]).addEventListener("click", function(e) {
+    let src = e.target;
+    if( src.children.length === 0 ) { src = src.parentElement; }
+    ipc.send(src.id,"");
+   } );
+}
+
+
 ipc.on('loadList', function(event, arg) {
-  mailgun = new mg({ privateApi: arg.config.apikey, publicApi: arg.config.pubkey, domainName: 'thesilverneedle.com'} );
-  document.getElementById('userList').getElementsByTagName('tbody')[0].innerHTML = '';
-  list = arg.listName;
-  console.log( "Setting list to "  + list );
+  mailgun = new mg( { privateApi: arg.electronGunSettings.apikey, publicApi: arg.electronGunSettings.pubkey, domainName: 'foo.com' } );
+  // Build a function to rebuild the header here.
+  let table = document.getElementById('userList').getElementsByTagName('tbody')[0];
+  for( var rowLoop = table.children.length-1; rowLoop >= 0;  rowLoop-- )
+  {
+    table.children[ rowLoop ].remove();
+  }
+
+  mailingList = arg.address;
+  console.log(arg);
+  console.log( "Setting list to " + mailingList );
+  let membersStored = 0;
   if ( arg.hasOwnProperty('membersList') ) {
-    console.log("List has " + arg.membersList.length + " subscribers");
-    renderUserList( arg.membersList);
+    console.log("List has " + arg.membersList.length + " subscribers stored in db.");
+    renderUserList( arg.membersList );
+    membersStored = arg.membersList.length;
+  }
+  if ( arg.hasOwnProperty('members_count') ) {
+    console.log("List has " + arg.members_count + " subscribers." );
+    if ( arg.members_count != membersStored ) { alert("Member list out of sync."); }
   }
 })
 
 function closeList() {
+  document.getElementById('resyncButton').disabled = false;
   ipc.send('closeListWindow', {});
 }
 
@@ -51,7 +77,7 @@ function pagesSuccess ( oRes ) {
           p.then(function( success ) { pagesSuccess( { res: success, membersList: oRes.membersList })}, function(err){ console.log(err);});
         } else {
           // We're done grabbing the list!
-          ipc.send( 'storeListMembers', { listName: urlArray[5], members: oRes.membersList } );
+          ipc.send( 'storeListMembers', { address: urlArray[5], members: oRes.membersList } );
           document.getElementById('resyncButton').disabled = false;
           renderUserList( oRes.membersList );
         }
@@ -60,11 +86,10 @@ function pagesSuccess ( oRes ) {
   }
 }
 
-
 function reSync() {
   console.log("Resync called");
   document.getElementById('resyncButton').disabled = true;
   document.getElementById('userList').getElementsByTagName('tbody')[0].innerHTML = '';
-  let p = mailgun.getMailListsPages(list, '', 100)
+  let p = mailgun.getMailListsPages( mailingList, '', 100)
   p.then(function( success ) { pagesSuccess( { res: success, membersList: [] })}, function(err){ console.log(err);});
 }
