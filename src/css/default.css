@@ -1,0 +1,23 @@
+.mainDisplayArea {
+  grid-area: scroller;
+}
+
+.mainHeader {
+  grid-area: header;
+}
+
+.mainFooter {
+  grid-area: footer;
+}
+
+
+.mainBody {
+  display: grid;
+  grid-template-rows: minmax(5%,max-content) 1fr minmax(2%, max-content);
+  grid-template-areas:
+    "header"
+    "scroller"
+    "footer";
+}
+
+h4 {margin: 0.5em 1em 0.5em 1em; }

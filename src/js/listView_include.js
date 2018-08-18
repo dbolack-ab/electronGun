@@ -3,55 +3,81 @@ const ipc = require('electron').ipcRenderer
 const mg = require('mailgun-es6');
 
 var mailgun;
-var mailingList;
-var listObject;
+var electronGunSettings;
 var members = [];
 
-let headerButtons = [ "btn_sendemail", "btn_close", "btn_maximize", "btn_minimize", "btn_tray" ];
 
-for ( var bLoop = 0; bLoop < headerButtons.length; bLoop++)
-{
-  document.getElementById(headerButtons[ bLoop ]).addEventListener("click", function(e) {
-    let src = e.target;
-    if( src.children.length === 0 ) { src = src.parentElement; }
-    ipc.send(src.id,"");
-   } );
-}
+document.addEventListener('DOMContentLoaded', function () {
+  // Semi-Lazy, usually headerbutton hooks. These ipc.send() to the index.js as they are typically things needing to either
+  // push actions to other windows or influence things on the main process.
+  // Uses the button/element id as the ipc action.
 
+  let headerButtons = [ "btn_sendemail", "btn_GenericCloseWindow", "btn_adduser", "btn_deluser" ];
 
+  for ( var bLoop = 0; bLoop < headerButtons.length; bLoop++)
+  {
+    document.getElementById(headerButtons[ bLoop ]).addEventListener("click", function( triggerEvent ) {
+      // Check and see if the button or the inner node registered.
+      // If it is an inner child, use the parent
+      let src = triggerEvent.target;
+      if( src.children.length === 0 ) { src = src.parentElement; }
+      ipc.send(src.id, 'listEditWindow' );
+     } );
+  }
+
+  // Locally handled Buttons
+
+  document.getElementById( "btn_syncmaillistusers" ).addEventListener("click", reSync );
+
+});
+
+// IPC Handlers
+
+// This function handles the initialization/updating of our settings global and triggers a rerender of the userlist table.
 ipc.on('loadList', function(event, arg) {
-  mailgun = new mg( { privateApi: arg.electronGunSettings.apikey, publicApi: arg.electronGunSettings.pubkey, domainName: 'foo.com' } );
-  // Build a function to rebuild the header here.
+  let membersStored = 0;
+  let lastSynced;
+
+  electronGunSettings = arg.electronGunSettings;
+  document.getElementById('btn_syncmaillistusers').disabled = false;
+  // Setup the mailgun object. Currently using a placeholder domain because it doesn't seem to actually matter to the API so long as one is there.
+  mailgun = new mg({ privateApi: electronGunSettings.apikey, publicApi: electronGunSettings.pubkey, domainName: 'foo.com' } );
+
+  // Clear out the table data rows.
   let table = document.getElementById('userList').getElementsByTagName('tbody')[0];
   for( var rowLoop = table.children.length-1; rowLoop >= 0;  rowLoop-- )
   {
     table.children[ rowLoop ].remove();
   }
 
-  mailingList = arg.address;
-  console.log(arg);
-  console.log( "Setting list to " + mailingList );
-  let membersStored = 0;
+  // Check for members. This list might not have been initialised.
   if ( arg.hasOwnProperty('membersList') ) {
     console.log("List has " + arg.membersList.length + " subscribers stored in db.");
     renderUserList( arg.membersList );
     membersStored = arg.membersList.length;
   }
+
+  // Check for list sync issues. Not the most reliable check as written.
   if ( arg.hasOwnProperty('members_count') ) {
     console.log("List has " + arg.members_count + " subscribers." );
     if ( arg.members_count != membersStored ) { alert("Member list out of sync."); }
   }
+
+  // Update the footer with some basic stats.
+  document.getElementById('listname').innerHTML = electronGunSettings.mailingList + ' - ' + arg.members_count + 'members - Last Synced: ' +
+    ( arg.hasOwnProperty('lastSynced') ? arg.lastSynced: 'unsynced' );
 })
 
-function closeList() {
-  document.getElementById('resyncButton').disabled = false;
-  ipc.send('closeListWindow', {});
-}
+// Helpers
 
+// Populate the table with rows of mailing list users.
 function renderUserList( membersList ) {
 
+  // Grab the body
   let tBody = document.getElementById('userList').getElementsByTagName('tbody')[0];
 
+  // Loop through the membership list and create a new row for each user.
+  // This will need to be enhanced once the new fields are
   membersList.forEach( function(entry) {
     let newTR = document.createElement('tr');
     let newTD = document.createElement('td');
@@ -61,35 +87,27 @@ function renderUserList( membersList ) {
   });
 }
 
-function pagesSuccess ( oRes ) {
-  let o = oRes.res;
-  // Make sure we have a paging object
-  if ( o.hasOwnProperty( 'paging' ) )
-  {
-    // Make sure we have a next
-    if ( o.paging.hasOwnProperty ( 'next' ) ) {
-      let urlArray = o.paging.next.split('/')
-      if( o.hasOwnProperty( 'items') )
-      {
-        if( o.items.length > 0 ) {
-          oRes.membersList = oRes.membersList.concat( o.items );
-          let p = mailgun.getMailListsPages(urlArray[5],urlArray[7], 100)
-          p.then(function( success ) { pagesSuccess( { res: success, membersList: oRes.membersList })}, function(err){ console.log(err);});
-        } else {
-          // We're done grabbing the list!
-          ipc.send( 'storeListMembers', { address: urlArray[5], members: oRes.membersList } );
-          document.getElementById('resyncButton').disabled = false;
-          renderUserList( oRes.membersList );
-        }
-      }
-    }
-  }
+// Runs with the promise reults from the resync.
+function pagesSuccess ( pagesResult, listAddress ) {
+  // Grab the date so we know when the last sync happened.
+  let lastSynced = new Date();
+  let lastSyncedAsString = lastSynced.getDate()  + "-" + (lastSynced.getMonth()+1) + "-" + lastSynced.getFullYear() + " " +
+      lastSynced.getHours() + ":" + lastSynced.getMinutes();
+  // Let the main process know it needs to store the updated list of members in the DB along with the new sync date.
+  ipc.send( 'storeListMembers', { address: listAddress, members: pagesResult.items, lastSynced: lastSyncedAsString } );
+  // Reenable the sync button
+  document.getElementById('btn_syncmaillistusers').disabled = false;
+  // Draw the new list.
+  renderUserList( pagesResult.items );
 }
 
+// Button Action function for the resync process.
 function reSync() {
-  console.log("Resync called");
-  document.getElementById('resyncButton').disabled = true;
+  // Disable the sync button. Right now this is our only indicator of activity.
+  document.getElementById('btn_syncmaillistusers').disabled = true;
+  // Clear out the existing rows.
   document.getElementById('userList').getElementsByTagName('tbody')[0].innerHTML = '';
-  let p = mailgun.getMailListsPages( mailingList, '', 100)
-  p.then(function( success ) { pagesSuccess( { res: success, membersList: [] })}, function(err){ console.log(err);});
+  // Fire off our query and send the results to pageSuccess.
+  let p = mailgun.getMailListsMembers( electronGunSettings.mailingList )
+  p.then(function( success ) { pagesSuccess( success, electronGunSettings.mailingList ); }, function(err){ console.log("ERROR:" + JSON.stringify(err));});
 }

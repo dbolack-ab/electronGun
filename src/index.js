@@ -26,15 +26,13 @@ let isQuitting;
 let backupSettings = {};
 let db;
 
-
-
 function setupMainWindow() {
   // Create the browser window.
   mainWindow = new BrowserWindow({width: 800, height: 600, show: false});
 
   // and load the index.html of the app.
   mainWindow.loadURL('file://' + __dirname + '/html/index.html');
-  //mainWindow.webContents.openDevTools();
+  if ( settings.get('allTheDebugs') ) { mainWindow.webContents.openDevTools(); }
 
   if( ! settings.get('global') )
   {
@@ -60,7 +58,13 @@ function setupMainWindow() {
           label: 'Debug',
           accelerator: 'CmdOrCtrl+D',
           click: () => {
-            mainWindow.webContents.openDevTools();
+            if( ! settings.get( 'allTheDebugs' ) ) {
+              settings.set('allTheDebugs', true );
+              mainWindow.webContents.openDevTools();
+            } else {
+              settings.set('allTheDebugs', false );
+              mainWindow.webContents.closeDevTools();
+            }
           }
         }
       ]
@@ -127,10 +131,8 @@ function setupMainWindow() {
 
   mainWindow.on('close', function () {
     isQuitting = true;
-    // Force close the hidden windows.
-    // For some reason, this won't forEach();
-    windows['ConfigWindow'].close();
-    windows['listEditWindow'].close();
+    settings.set('allTheDebugs', false );
+    closeSubwindows();
   });
 
   // Emitted when the window is closed.
@@ -143,53 +145,45 @@ function setupMainWindow() {
   });
 }
 
-function setupListEditWindow() {
-  // Create the browser window.
-  windows['listEditWindow'] = new BrowserWindow({width: 800, height: 465, frame: false, show: false });
-
-  // and load the index.html of the app.
-  windows['listEditWindow'].loadURL('file://' + __dirname + '/html/listView.html');
-
-  windows['listEditWindow'].on('onbeforeunload', function (e) {
-    if( !isQuitting ){
-      e.preventDefault();
-      windows['listEditWindow'].hide();
-      e.returnValue = false;  // this will *prevent* the closing no matter what value is passed
-    }
-  });
-
-  windows['listEditWindow'].on('closed', function () {
-      windows['listEditWindow'] = null;
-  });
-
+function closeSubwindows() {
+    for ( var window in windows ) {
+      if ( windows[ window ] ) {
+        windows[ window ].close();
+      }
+  }
 }
 
-
-function setupConfigurationWindow() {
+function setupSubwindows( subWindow, browserWindowValues, htmlFile ) {
   // Create the browser window.
-  windows['ConfigWindow'] = new BrowserWindow({width: 800, height: 400, frame: false, show: false });
+  windows[ subWindow ] = new BrowserWindow( browserWindowValues );
 
   // and load the index.html of the app.
-  windows['ConfigWindow'].loadURL('file://' + __dirname + '/html/config.html');
+  windows[ subWindow ].loadURL('file://' + __dirname + '/html/' + htmlFile );
 
-  windows['ConfigWindow'].on('onbeforeunload', function (e) {
+  windows[ subWindow ].on('onbeforeunload', function (e) {
     if( !isQuitting ){
       e.preventDefault();
-      windows['ConfigWindow'].hide();
+      windows[ subWindow ].hide();
+      windows[ subWindow ].closeDevTools();
       e.returnValue = false;  // this will *prevent* the closing no matter what value is passed
     }
   });
 
-  windows['ConfigWindow'].on('closed', function () {
-      windows['ConfigWindow'] = null;
+  windows[ subWindow ].on('closed', function () {
+      windows[ subWindow ] = null;
   });
-
 }
 
 function openConfiguration() {
   windows['ConfigWindow'].webContents.send('loadform', settings.getAll());
   windows['ConfigWindow'].show();
-  windows['ConfigWindow'].webContents.openDevTools();
+  if ( settings.get('allTheDebugs') ) { windows['ConfigWindow'].webContents.openDevTools(); }
+}
+
+function openUserManipulation(whichMode) {
+  windows['userManipulation'].webContents.send('prepareAction', { settings: settings.getAll(), action: whichMode } );
+  windows['userManipulation'].show();
+  if ( settings.get('allTheDebugs') ) { windows['userManipulation'].webContents.openDevTools(); }
 }
 
 function showSplash( ) {
@@ -206,7 +200,7 @@ function showSplash( ) {
     windows['splashWindow'].on('closed', function () {
         windows['splashWindow'] = null;
     });
-    // windows['splashWindow'].webContents.openDevTools();
+    if ( settings.get('allTheDebugs') ) { windows['splashWindow'].webContents.openDevTools(); }
   });
 }
 
@@ -223,37 +217,86 @@ function setupIPCListeners() {
     openConfiguration();
   });
 
+  ipcMain.on('btn_syncmaillists', function(event, arg) {
+    mainWindow.webContents.send('passedElectronGunSettings', settings.getAll());
+  });
+
   ipcMain.on('updateElectronGunSettings', function (event, arg) {
     windows['ConfigWindow'].hide();
+    windows['ConfigWindow'].closeDevTools();
     settings.set('pubkey', arg.pubkey );
     settings.set('apikey', arg.apikey );
   });
 
-  ipcMain.on('closeElectronGunSettings', function (event, arg ) {
-    windows['ConfigWindow'].hide();
+  // Mailing List Edit window Buttons
+
+  ipcMain.on('btn_GenericCloseWindow', function( event, arg ) {
+    windows[ arg ].hide();
+    windows[ arg ].closeDevTools();
   });
 
-  ipcMain.on('launchEdit', function( event, arg ) {
-    arg.electronGunSettings = settings.getAll();
-    windows['listEditWindow'].show();
-    windows['listEditWindow'].webContents.openDevTools();
+  ipcMain.on('btn_adduser', function ( event, arg ) {
+    openUserManipulation('addUsers');
+  });
+
+  ipcMain.on('btn_deluser', function ( event, arg ) {
+    openUserManipulation('delUsers');
+  });
+
+  ipcMain.on('btn_sendemail', function( event, arg ){
+    windows['sendEmail'].show();
+    if ( settings.get('allTheDebugs') ) { windows['sendEmail'].webContents.openDevTools(); }
+  });
+
+  // Mail Editing window
+
+  ipcMain.on('btn_closeSend', function( event, arg ){
+    windows['sendEmail'].close();
+  });
+
+  // Preview window
+
+  // Mailing List manipulation
+
+  ipcMain.on( "btn_previewMail", function( event, arg ) {
+    console.log(arg);
+    windows['mailPreview'].show();
+    if ( settings.get('allTheDebugs') ) { windows['mailPreview'].webContents.openDevTools(); }
+    windows['mailPreview'].webContents.send( 'mailPreview', { preview: arg })
+  })
+
+  ipcMain.on('btn_closeUserManipWindow', function( event, arg ) {
+    let listObject = {}
+    console.log( settings.get( 'mailingList' ) );
+    listObject.electronGunSettings = settings.getAll();
+    windows['userManipulation'].hide();
+    windows['userManipulation'].closeDevTools();
     let lists = loki.db.getCollection('lists');
+    var results = lists.find( {address: settings.get('mailingList')} );
+    if( results.length > 0 ) {
+      listObject.membersList = results[0].members;
+    }
+    listObject.members_count = results[0].members_count;
+    listObject.name = results[0].name;
+    listObject.lastSynced = results[0].lastSynced;
+    windows['listEditWindow'].webContents.send('loadList', listObject);
+  })
+
+
+  ipcMain.on('launchEdit', function( event, arg ) {
+    windows['listEditWindow'].show();
+    if ( settings.get('allTheDebugs') ) { windows['listEditWindow'].webContents.openDevTools(); }
+    let lists = loki.db.getCollection('lists');
+    settings.set('mailingList', arg.address);
     var results = lists.find( {address: arg.address} );
     if( results.length > 0 ) {
       arg.membersList = results[0].members;
     }
     arg.members_count = results[0].members_count;
     arg.name = results[0].name;
+    arg.lastSynced = results[0].lastSynced;
+    arg.electronGunSettings = settings.getAll();
     windows['listEditWindow'].webContents.send('loadList', arg);
-
-  });
-
-  ipcMain.on('fetchElectronGunSettings', function(event, arg) {
-    mainWindow.webContents.send('passedElectronGunSettings', settings.getAll());
-  });
-
-  ipcMain.on('closeListWindow', function( event, arg ) {
-    windows['listEditWindow'].hide();
   });
 
   ipcMain.on( 'syncedMailingLists', function( event, arg ) {
@@ -273,12 +316,32 @@ function setupIPCListeners() {
     let lists = loki.db.getCollection('lists');
     var results = lists.find( {address: arg.address} );
     if( results.length > 0 ) {
-      results[0].members = arg.members;
+      if( arg.hasOwnProperty('newmember') ) {
+        results[0].members.push(arg.newmember );
+      } else if ( arg.hasOwnProperty('removemember') ) {
+        for( var memberLoop = 0; memberLoop < results[0].members.length; memberLoop++)
+          if ( results[0].members[ memberLoop ].address === arg.removemember.address )
+          {
+            results[0].members.splice( memberLoop, 1 );
+            memberLoop = results[0].members.length + 2;
+          }
+      } else {
+        results[0].members = arg.members;
+      }
+      results[0].members_count = results[0].members.length;
+      results[0].lastSynced = arg.lastSynced;
       lists.update( results[0] );
     } else {
+      arg.members_count = arg.members.length;
       lists.insert( arg );
     }
-
+    let reloadObject = {}
+    reloadObject.electronGunSettings = settings.getAll();
+    reloadObject.members_count = results[0].members_count;
+    reloadObject.membersList = results[0].members;
+    reloadObject.address = arg.address;
+    reloadObject.lastSynced = arg.lastSynced;
+    windows['listEditWindow'].webContents.send('loadList', reloadObject );
   });
 }
 
@@ -300,8 +363,11 @@ function setupApp() {
       createTimeoutPromise(250, 'Setting up Windows.', function(value) {
         windows['splashWindow'].webContents.send('updateLoading', value);
         setupMainWindow();
-        setupConfigurationWindow();
-        setupListEditWindow();
+        setupSubwindows( 'sendEmail', {width: 800, height: 400, frame: false, show: false }, 'sendMail.html' );
+        setupSubwindows( 'ConfigWindow', {width: 800, height: 400, frame: false, show: false }, 'config.html' );
+        setupSubwindows( 'listEditWindow', {width: 800, height: 465, frame: false, show: false }, 'listView.html' );
+        setupSubwindows( 'userManipulation', {width: 800, height: 400, frame: false, show: false }, 'userManip.html' );
+        setupSubwindows( 'mailPreview', {width: 800, height: 400, frame: false, show: false }, 'mailPreview.html' );
         cb(null);
       });
     },
@@ -327,7 +393,6 @@ function loadLists()
   let lists = loki.db.getCollection('lists');
   var results = lists.find( {} );
   if ( results.length > 0 ) {
-    console.log( "Sending " + results );
     mainWindow.webContents.send('loadedLists', results );
   }
 }

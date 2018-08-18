@@ -10,18 +10,17 @@
     <div class="mainHeader">
       <header class="toolbar toolbar-header">
         <div class="toolbar-actions">
+          <button id="btn_sendemail" class="btn btn-large btn-default"><span class="icon icon-mail"></span></button>
+          <button id="btn_syncmaillistusers" class="btn btn-large btn-default"><span class="icon icon-arrows-ccw"></span></button>
           <div class="btn-group">
-            <button id="btn_sendemail" class="btn btn-large btn-default"><span class="icon icon-book"></span></button>
+            <button id="btn_adduser" class="btn btn-large btn-default"><span class="icon icon-user-add"></span></button>
+            <button id="btn_deluser" class="btn btn-large btn-default"><span class="icon icon-user"></span></button>
           </div>
-          <button id="btn_close" class="btn btn-large btn-default pull-right"><span class="icon icon-cancel-squared"></span></button>
-          <button id="btn_maximize" class="btn btn-large btn-default pull-right"><span class="icon icon-plus"></span></button>
-          <button id="btn_minimize" class="btn btn-large btn-default pull-right"><span class="icon icon-minus"></span></button>
-          <button id="btn_tray" class="btn btn-large btn-default pull-right"><span class="icon icon-install"></span></button>
+          <button id="btn_GenericCloseWindow" class="btn btn-large btn-default pull-right"><span class="icon icon-cancel-squared"></span></button>
         </div>
       </header>
     </div>
     <div id="mainDisplayArea" class="mainDisplayArea">
-    <h2 id="listname"></h2>
       <table id="userList" class="table-striped" style="width:100%">
       <thead style="display: block">
         <tr>
@@ -31,13 +30,10 @@
       <tbody style="overflow-y:scroll; overflow-x: hidden; display: block; height: 280px;">
       </tbody>
     </table>
-    <br />
-    <br />
-    <button id="resyncButton" onClick="reSync()">Resync</button>&nbsp;&nbsp;<button id="closeButton" onClick="closeList()">close</button>
   </div>
   <div class="mainFooter">
     <footer class="toolbar toolbar-footer">
-      <h1 class="title">Footer</h1>
+      <h1 class="title" id="listname"></h1>
     </footer>
   </div>
   <script src="../js/listView_include.js" charset="utf-8"></script>

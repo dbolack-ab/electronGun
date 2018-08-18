@@ -4,18 +4,24 @@ const mg = require('mailgun-es6');
 
 var electronGunSettings;
 
-let headerButtons = [ "btn_config", "btn_sendemail", "btn_close", "btn_maximize", "btn_minimize", "btn_tray" ];
+document.addEventListener('DOMContentLoaded', function () {
+  // Semi-Lazy, usually headerbutton hooks. These ipc.send() to the index.js as they are typically things needing to either
+  // push actions to other windows or influence things on the main process.
+  // Uses the button/element id as the ipc action.
 
-for ( var bLoop = 0; bLoop < headerButtons.length; bLoop++)
-{
-  console.log(headerButtons[ bLoop ]);
-  document.getElementById(headerButtons[ bLoop ]).addEventListener("click", function(e) {
-    let src = e.target;
-    if( src.children.length === 0 ) { src = src.parentElement; }
-    ipc.send(src.id,"");
-   } );
-}
+  let headerButtons = [ "btn_config", "btn_syncmaillists", "btn_close", "btn_maximize", "btn_minimize", "btn_tray" ];
 
+  for ( var bLoop = 0; bLoop < headerButtons.length; bLoop++)
+  {
+    document.getElementById(headerButtons[ bLoop ]).addEventListener("click", function( triggerEvent ) {
+      // Check and see if the button or the inner node registered.
+      // If it is an inner child, use the parent
+      let src = triggerEvent.target;
+      if( src.children.length === 0 ) { src = src.parentElement; }
+      ipc.send(src.id, 'mainWindow' );
+     } );
+  }
+});
 function displayMailingLists( mailingLists ) {
   let table = document.getElementById('lists');
   for( var rowLoop = table.children.length-1; rowLoop > 0;  rowLoop-- )
@@ -61,18 +67,10 @@ ipc.on('passedElectronGunSettings', function(event, arg) {
 });
 
 ipc.on('loadedLists', function(event, arg) {
-  console.log("Got " + arg);
   displayMailingLists( arg );
 });
 
-
-function queryMailingListsButton()
-{
-  ipc.send('fetchElectronGunSettings', {} );
-}
-
 function editMailingListButton( address )
 {
-  console.log(address);
   ipc.send('launchEdit', { address: address });
 }

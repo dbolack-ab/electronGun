@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="../css/photon.css">
+    <link rel="stylesheet" href="../css/default.css">
+</head>
+  <body>
+    <body class="mainBody">
+    <div class="mainHeader">
+      <header class="toolbar toolbar-header">
+        <div class="toolbar-actions">
+          <div class="btn-group">
+            <button id="btn_adduser" class="btn btn-large btn-default"><span class="icon icon-user-add"></span></button>
+            <button id="btn_deluser" class="btn btn-large btn-default"><span class="icon icon-user"></span></button>
+          </div>
+          <button id="btn_closeUserManipWindow" class="btn btn-large btn-default pull-right"><span class="icon icon-cancel-squared"></span></button>
+        </div>
+      </header>
+    </div>
+    <div id="mainDisplayArea" class="mainDisplayArea" style="margin: 0.5em 2em 0.5em 2em;">
+    <h4 id="action"></h4>
+    <input type="hidden" id="formAction" value="">
+    <div class="form-group">
+      <label>Email Address(es):</label>
+      <textarea id="addresses" class="form-control" rows="5"></textarea>
+    </div>
+    <button id="btn_processForm" onClick="processForm();">Update</button>
+  </div>
+  <div class="mainFooter">
+    <footer class="toolbar toolbar-footer">
+      <h1 class="title">Footer</h1>
+    </footer>
+  </div>
+  <script src="../js/userManip_include.js" charset="utf-8"></script>
+  </body>
+</html>
