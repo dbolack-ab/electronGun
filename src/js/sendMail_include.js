@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', function () {
   // push actions to other windows or influence things on the main process.
   // Uses the button/element id as the ipc action.
 
-  let headerButtons = [ "btn_closeSend", "btn_previewMail", "btn_sendTheMail" ];
+  let headerButtons = [ "btn_GenericCloseWindow", "btn_previewMail", "btn_sendTheMail" ];
 
   for ( var bLoop = 0; bLoop < headerButtons.length; bLoop++)
   {
@@ -22,6 +22,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 // IPC Handlers
 
+// Set up the page.
 ipc.on('setupSendMail', function( event, arg) {
   document.getElementById('editMailArea').value = '';
   document.getElementById('listName').innerHTML = arg.listName;

@@ -19,9 +19,11 @@ document.addEventListener('DOMContentLoaded', function () {
      } );
   }
 });
+
+
 // IPC Handlers
 
+// Load the HTML into the preview DOM object.
 ipc.on('mailPreview', function(event, arg) {
   document.getElementById('previewArea').innerHTML = arg.preview;
-  console.log(arg.preview)
 });
