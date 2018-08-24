@@ -6,8 +6,8 @@ const ipc = require('electron').ipcRenderer
 // Handler for the update box.
 ipc.on('updateLoading', function (event, arg) {
     // Bundle up the form values as the settings object and send it back.
-    console.log('Updating:' + arg)
     document.getElementById('loadingDiv').innerHTML = arg;
 });
 
+// Tell the main thread we're ready to load everything else up.
 document.addEventListener('DOMContentLoaded', function () { ipc.send( 'loadApp','gogogogo'); } );

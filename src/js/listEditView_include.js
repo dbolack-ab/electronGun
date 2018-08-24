@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', function () {
   // push actions to other windows or influence things on the main process.
   // Uses the button/element id as the ipc action.
 
-  let headerButtons = [ "btn_sendemail", "btn_GenericCloseWindow", "btn_adduser", "btn_deluser" ];
+  let headerButtons = [ "btn_sendMailWindow", "btn_GenericCloseWindow", "btn_adduser", "btn_deluser" ];
 
   for ( var bLoop = 0; bLoop < headerButtons.length; bLoop++)
   {
@@ -64,7 +64,7 @@ ipc.on('loadList', function(event, arg) {
   }
 
   // Update the footer with some basic stats.
-  document.getElementById('listname').innerHTML = electronGunSettings.mailingList + ' - ' + arg.members_count + 'members - Last Synced: ' +
+  document.getElementById('listname').innerHTML = electronGunSettings.mailingList + ' - ' + arg.members_count + ' members - Last Synced: ' +
     ( arg.hasOwnProperty('lastSynced') ? arg.lastSynced: 'unsynced' );
 })
 
@@ -90,9 +90,7 @@ function renderUserList( membersList ) {
 // Runs with the promise reults from the resync.
 function pagesSuccess ( pagesResult, listAddress ) {
   // Grab the date so we know when the last sync happened.
-  let lastSynced = new Date();
-  let lastSyncedAsString = lastSynced.getDate()  + "-" + (lastSynced.getMonth()+1) + "-" + lastSynced.getFullYear() + " " +
-      lastSynced.getHours() + ":" + lastSynced.getMinutes();
+  let lastSyncedAsString = new Date().toLocaleString("en-us");
   // Let the main process know it needs to store the updated list of members in the DB along with the new sync date.
   ipc.send( 'storeListMembers', { address: listAddress, members: pagesResult.items, lastSynced: lastSyncedAsString } );
   // Reenable the sync button

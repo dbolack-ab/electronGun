@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', function () {
   // push actions to other windows or influence things on the main process.
   // Uses the button/element id as the ipc action.
 
-  let headerButtons = [ "btn_GenericCloseWindow", "btn_previewMail", "btn_sendTheMail" ];
+  let headerButtons = [ "btn_GenericCloseWindow" ];
 
   for ( var bLoop = 0; bLoop < headerButtons.length; bLoop++)
   {
@@ -15,15 +15,16 @@ document.addEventListener('DOMContentLoaded', function () {
       // If it is an inner child, use the parent
       let src = triggerEvent.target;
       if( src.children.length === 0 ) { src = src.parentElement; }
-      ipc.send(src.id, 'sendEmail' );
+      ipc.send(src.id, 'mailPreviewWindow' );
      } );
   }
 });
 
+
 // IPC Handlers
 
-// Set up the page.
-ipc.on('setupSendMail', function( event, arg) {
-  document.getElementById('editMailArea').value = '';
-  document.getElementById('listName').innerHTML = arg.listName;
+// Load the HTML into the preview DOM object.
+ipc.on('mailPreview', function(event, arg) {
+  console.log(arg)
+  document.getElementById('previewArea').innerHTML = arg.preview;
 });

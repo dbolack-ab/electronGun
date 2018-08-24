@@ -10,6 +10,7 @@ const fs = lazyRequire('fs');
 const util = lazyRequire('util');
 const waterfall = lazyRequire('async-waterfall');
 const path = lazyRequire('path');
+const mg = require('mailgun-es6');
 
 
 
@@ -27,6 +28,18 @@ let windows = [];
 let isQuitting;
 // For the lokijs instance
 let db;
+// The list of windows?
+let subWindows = [ 'sendMailWindow', 'configurationWindow', 'listEditWindow', 'userManipulationWindow', 'mailPreviewWindow' ];
+
+
+// Set defaults for stored values:
+function initializeSettings() {
+  subWindows.forEach( function (subWindow ) {
+    settings.set( 'windowSettings.' + subWindow, {width: 1024, height: 768, frame: false, show: false })
+  });
+  // Clobber for mailPreviewWindow due to scrolling bug.
+}
+
 
 function setupMainWindow() {
   // Create the browser window.
@@ -35,7 +48,7 @@ function setupMainWindow() {
   // and load the index.html of the app.
   mainWindow.loadURL('file://' + __dirname + '/html/index.html');
   // If we don't have a global config, initialise it
-  if( ! settings.get('global') )
+  if( ( ! settings.get('global') ) || ( ! settings.has( 'windowSettings' ) ) )
   {
     initializeSettings();
   }
@@ -195,12 +208,15 @@ function setupSubwindows( subWindow, browserWindowValues, htmlFile ) {
 // Generic function for bringing a subwindow to the top.
 function showSubWindow( windowName, ipcAction, ipcArgs )
 {
-  // Make sure the windows is present.
+  let sleepTime = 1000;
+
+  // Make sure the window is present. If it isn't, rebuild missing windows and sleep a second before running the
+  if( windows[ windowName ] )  { sleepTime = 1; }
   checkSubwindowStatus();
   // We need to stall a second - This is an unpleasant way to handle this, but no documented method for blocking Alt-F4 works.
   // This means we sometimes have to recreate the window, but we don't seem to be able to get it to process the ipcAction if
   // We don't stall out.
-  createTimeoutPromise( 1000, '', function () {
+  createTimeoutPromise( sleepTime, '', function () {
     // Trigger the subwindow's update/repaint action if needed.
     if( ipcAction ) {
       windows[ windowName ].webContents.send( ipcAction, ipcArgs );
@@ -233,7 +249,8 @@ function showSplash( ) {
 
 // This is used by both the btn_closeUserManipWindow and launchEdit IPC events
 // to load/reload the current mailing list for browsing/editing/etc.
-function showMailingListEditWindow( hideManip ) {
+function showMailingListEditWindow( hideManip, lookupResults ) {
+
   // If this is called by btn_closeUserManipWindow, hide the userManipulationWindow subwindow
   if( hideManip ) {
       windows['userManipulationWindow'].webContents.closeDevTools();
@@ -250,10 +267,22 @@ function showMailingListEditWindow( hideManip ) {
   if( results.length > 0 ) {
     listObject.membersList = results[0].members;
   }
+
   // Populate the object.
-  listObject.members_count = results[0].members_count;
+
+  // If function launched due to a click on the list of mailing lists, we will have had a list lookup
+  // to verify the sync is current. If that happened, we have a lookupResults object. Use its members_count
+  // instead of the value from the database lookup.
+  if ( lookupResults ) {
+    listObject.members_count = lookupResults.list.members_count;
+  } else {
+    listObject.members_count = results[0].members_count;
+  }
+  // Copy the other values we want from DB results
   listObject.name = results[0].name;
   listObject.lastSynced = results[0].lastSynced;
+
+  // Pass along the settings
   listObject.electronGunSettings = settings.getAll();
   // Show the listedit subwindow.
   showSubWindow('listEditWindow', 'loadList', listObject );
@@ -269,7 +298,7 @@ function setupIPCListeners() {
 
   // Generics or multi-window
   //
-  // Close Subwindow.
+  // Close Subwindow.btn_previewMail
   ipcMain.on('btn_GenericCloseWindow', function( event, arg ) {
     windows[ arg ].hide();
     windows[ arg ].closeDevTools();
@@ -292,9 +321,28 @@ function setupIPCListeners() {
     showSubWindow('configurationWindow','loadform', settings.getAll() );
   });
 
+  ipcMain.on('btn_syncmaillists', function(event, arg) {
+    mainWindow.webContents.send('passedElectronGunSettings', settings.getAll());
+  });
+
   // Opens up the mailing list editing subwindow
   ipcMain.on('launchEdit', function( event, arg ) {
-    showMailingListEditWindow( false );
+    // Set the active mailingList
+    settings.set('mailingList', arg.address );
+    // Set the domain based on the mailing list
+    settings.set('activeDomain', arg.address.split('@')[1] );
+    // Do a lookup of the specific list so we can make sure it is in sync.
+    // Pass the results to showMailingListEditWindow when needed
+
+    // Make sure we have the API values.
+    if( settings.has('apikey') && settings.has('pubkey') ) {
+      // Create the new mailgun instance
+      let mailgun = new mg({ privateApi: settings.get('apikey'), publicApi: settings.get('pubkey'), domainName: settings.get('activeDomain') } );
+      // Get the Promise
+      let listPromise = mailgun.getMailLists( arg.address );
+      // On complete, send it to the showMailingListEditWindow function
+      listPromise.then( function( success ) { showMailingListEditWindow( false, success) }, function(err) { console.log(err); } )
+    }
   });
 
   // Store the results of resyncing the list of mailing lists on the account.
@@ -307,7 +355,7 @@ function setupIPCListeners() {
       var results = lists.find( {address: list.address} );
       // If found, update the name.
       if( results.length > 0 ) {
-        results[0].name = arg.name;
+        results[0].name = list.name;
         lists.update( results[0] );
       } else {
         // Otherwise, insert it.
@@ -320,24 +368,32 @@ function setupIPCListeners() {
   //
   // Update the configuration settings and close the configuration window.
   ipcMain.on('updateElectronGunSettings', function (event, arg) {
-    windows['configurationWindow'].hide();
-    windows['configurationWindow'].closeDevTools();
-    settings.set('pubkey', arg.pubkey );
-    settings.set('apikey', arg.apikey );
+
+    // Validate the key pair is good by doing a generic login.
+    let mailgun = new mg({ privateApi: electronGunSettings.apikey, publicApi: electronGunSettings.pubkey, domainName: electronGunSettings.activeDomain } );
+    // Get the Promise
+    let listPromise = mailgun.getMailLists();
+    // On complete, send it to the processMailingListQueryResults function
+    listPromise.then( function( success ) {
+      windows['configurationWindow'].hide();
+      windows['configurationWindow'].closeDevTools();
+      settings.set('pubkey', arg.pubkey );
+      settings.set('apikey', arg.apikey );
+    }, function(err) { alert("Invalid Keypair.") } );
   });
 
   // Mailing List Edit window Buttons
   //
   // Show the send email subwindow
   ipcMain.on('btn_sendMailWindow', function( event, arg ){
-    showSubWindow( 'sendMailWindow', '', {} )
+    showSubWindow( 'sendMailWindow', 'setupSendMail', { electronGunSettings: settings.getAll() } )
   });
 
   // Mail Editing window
   //
   // Preview the message being sent.
-  ipcMain.on( "btn_previewMail", function( event, arg ) {
-    showSubWindow('mailPreviewWindow','mailPreviewWindow', { preview: arg } );
+  ipcMain.on( "previewMail", function( event, arg ) {
+    showSubWindow('mailPreviewWindow','mailPreview', arg );
   })
 
   // Mailing List Manipulation ( add/delete users ) subwindow
@@ -397,13 +453,11 @@ function setupIPCListeners() {
 
 // Loop through the subwindows and recreate any that alt-F4'd
 function checkSubwindowStatus() {
-  // The list of windows?
-  let subWindows = [ 'sendMailWindow', 'configurationWindow', 'listEditWindow', 'userManipulationWindow', 'mailPreviewWindow' ];
   // Iterate through the windows
   subWindows.forEach( function ( subWindow ) {
     // If the window is not in the array or the window object is null, recreate it.
     if ( (!(subWindow in windows)) || ( windows[ subWindow ] == null ) ) {
-        setupSubwindows( subWindow, {width: 800, height: 400, frame: false, show: false }, subWindow + '.html' );
+      setupSubwindows( subWindow, settings.get('windowSettings.' + subWindow), subWindow + '.html' );
     }
   } );
 }

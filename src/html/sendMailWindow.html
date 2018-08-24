@@ -5,33 +5,35 @@
 
     <!-- Stylesheets -->
     <link rel="stylesheet" href="../css/photon.css">
-
+    <link rel="stylesheet" href="../css/default.css">
     <!-- Electron Javascript -->
   </head>
-  <body>
+  <body class="mainBody">
     <div class="mainHeader">
       <header class="toolbar toolbar-header">
         <div class="toolbar-actions">
           <div class="btn-group">
             <button id="btn_previewMail" class="btn btn-large btn-default"><span class="icon icon-code"></span></button>
           </div>
-          <button id="btn_closeSend" class="btn btn-large btn-default pull-right"><span class="icon icon-cancel-squared"></span></button>
+          <button id="btn_GenericCloseWindow" class="btn btn-large btn-default pull-right"><span class="icon icon-cancel-squared"></span></button>
         </div>
       </header>
     </div>
     <div id="mainDisplayArea" class="mainDisplayArea" style="margin: 0.5em 2em 0.5em 2em;">
       <input type="hidden" id="formAction" value="">
       <div class="form-group">
+        <label>Subject:</label>
+        <input id="editMailSubject" class="form-control" />
         <label>Message:</label>
         <textarea id="editMailArea" class="form-control" rows="10"></textarea>
       </div>
-      <button id="btn_sendTheMail">Send</button>
+      <button id="btn_sendEmail">Send</button>
     </div>
     <div class="mainFooter">
       <footer class="toolbar toolbar-footer">
-        <h1 class="title" id="listname"></h1>
+        <h1 class="title" id="listName"></h1>
       </footer>
     </div>
   </body>
-  <script src="../js/sendMail_include.js" charset="utf-8"></script>
+  <script src="../js/sendMailWindow_include.js" charset="utf-8"></script>
 </html>
