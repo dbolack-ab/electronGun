@@ -370,7 +370,7 @@ function setupIPCListeners() {
   ipcMain.on('updateElectronGunSettings', function (event, arg) {
 
     // Validate the key pair is good by doing a generic login.
-    let mailgun = new mg({ privateApi: arg.apikey, publicApi: arg.pubkey, domainName: settings.get('activeDomain') } );
+    let mailgun = new mg({ privateApi: arg.apikey, publicApi: arg.pubkey, domainName: settings.get('activeDomain') ? settings.get('activeDomain') : 'foo.com' } );
     // Get the Promise
     let listPromise = mailgun.getMailLists();
     // On complete, send it to the processMailingListQueryResults function
