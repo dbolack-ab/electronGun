@@ -145,7 +145,7 @@ function setupMainWindow() {
     // Make the window visible
     mainWindow.show();
     // Close the splash screen
-    windows['splashWindow'].close();
+    windows['splashWindow'].hide();
     // Load and display the mailing lists stored in the DB.
     loadLists();
   })
@@ -370,7 +370,7 @@ function setupIPCListeners() {
   ipcMain.on('updateElectronGunSettings', function (event, arg) {
 
     // Validate the key pair is good by doing a generic login.
-    let mailgun = new mg({ privateApi: electronGunSettings.apikey, publicApi: electronGunSettings.pubkey, domainName: electronGunSettings.activeDomain } );
+    let mailgun = new mg({ privateApi: arg.apikey, publicApi: arg.pubkey, domainName: settings.get('activeDomain') } );
     // Get the Promise
     let listPromise = mailgun.getMailLists();
     // On complete, send it to the processMailingListQueryResults function
@@ -379,7 +379,8 @@ function setupIPCListeners() {
       windows['configurationWindow'].closeDevTools();
       settings.set('pubkey', arg.pubkey );
       settings.set('apikey', arg.apikey );
-    }, function(err) { alert("Invalid Keypair.") } );
+    })
+    .catch(function(err) { console.log(err); } );
   });
 
   // Mailing List Edit window Buttons

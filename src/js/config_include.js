@@ -39,10 +39,10 @@ function configChange() {
   let returnValue = {};
   returnValue.pubkey = document.getElementById('pubkey').value;
   returnValue.apikey = document.getElementById('apikey').value;
-  ipc.send( 'updateConfig', returnValue );
+  ipc.send( 'updateElectronGunSettings', returnValue );
 }
 
 // This will be converted when the form is normalized.
 function configClose() {
-  ipc.send( 'closeConfig', returnValue );
+  ipc.send( 'btn_GenericCloseWindow', 'configurationWindow' );
 }
