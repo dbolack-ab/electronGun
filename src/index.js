@@ -37,6 +37,7 @@ function initializeSettings() {
   subWindows.forEach( function (subWindow ) {
     settings.set( 'windowSettings.' + subWindow, {width: 1024, height: 768, frame: false, show: false })
   });
+  settings.set('activeDomain', 'foo.com');
   // Clobber for mailPreviewWindow due to scrolling bug.
 }
 
@@ -370,7 +371,7 @@ function setupIPCListeners() {
   ipcMain.on('updateElectronGunSettings', function (event, arg) {
 
     // Validate the key pair is good by doing a generic login.
-    let mailgun = new mg({ privateApi: arg.apikey, publicApi: arg.pubkey, domainName: settings.get('activeDomain') ? settings.get('activeDomain') : 'foo.com' } );
+    let mailgun = new mg({ privateApi: arg.apikey, publicApi: arg.pubkey, domainName: settings.get('activeDomain') );
     // Get the Promise
     let listPromise = mailgun.getMailLists();
     // On complete, send it to the processMailingListQueryResults function
