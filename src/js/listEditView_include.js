@@ -28,6 +28,7 @@ document.addEventListener('DOMContentLoaded', function () {
   // Locally handled Buttons
 
   document.getElementById( "btn_syncmaillistusers" ).addEventListener("click", reSync );
+  document.getElementById( "searchFilter" ).addEventListener("keyup", filterEmails );
 
 });
 
@@ -70,6 +71,27 @@ ipc.on('loadList', function(event, arg) {
 
 // Helpers
 
+function filterEmails() {
+  let filterString = document.getElementById('searchFilter').value;
+  // Run through the list and hide rows that don't match.
+  let table = document.getElementById('userList').getElementsByTagName('tbody')[0];
+  for( var rowLoop = table.children.length-1; rowLoop >= 0;  rowLoop-- )
+  {
+    if( !indexOfi( table.children[ rowLoop ].children[0].innerHTML, filterString ) )
+    {
+      table.children[ rowLoop ].style.display = 'none';
+    } else {
+      table.children[ rowLoop ].style.display = 'table';
+    }
+  }
+}
+
+// Helper to make this less ugly.
+function indexOfi( sourceStr, matchStr )
+{
+  return( sourceStr.toLowerCase().indexOf( matchStr.toLowerCase() ) != -1 );
+}
+
 // Populate the table with rows of mailing list users.
 function renderUserList( membersList ) {
 
@@ -81,8 +103,11 @@ function renderUserList( membersList ) {
   membersList.forEach( function(entry) {
     let newTR = document.createElement('tr');
     let newTD = document.createElement('td');
+    let newNameTD = document.createElement('td');
     newTD.innerHTML = entry.address;
+    newNameTD.innerHTML = entry.name;
     newTR.appendChild(newTD);
+    newTR.appendChild(newNameTD);
     tBody.appendChild(newTR);
   });
 }

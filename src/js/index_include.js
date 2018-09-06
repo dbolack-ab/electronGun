@@ -83,8 +83,9 @@ function queryMailingLists() {
 ipc.on('passedElectronGunSettings', function(event, arg) {
   // Store pased along global settings
   electronGunSettings = arg;
-  // Set the footer.
-  document.getElementById('mainFooter').innerHTML = "Active Domain: " + electronGunSettings.activeDomain;
+  // Set the footer - if it's foo.com, leave it unset. Oddly, concating this on the initial line results in nothing showing...
+  document.getElementById('mainFooter').innerHTML = "Active Domain: ";
+  document.getElementById('mainFooter').innerHTML += ( electronGunSettings.activeDomain === 'foo.com') ? '<none>' : electronGunSettings.activeDomain;
   // Run the resync
   queryMailingLists();
 });

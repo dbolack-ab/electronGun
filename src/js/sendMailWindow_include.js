@@ -35,11 +35,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
 // Set up the page.
 ipc.on('setupSendMail', function( event, arg) {
+  // Copy the global application settings
+  electronGunSettings = arg.electronGunSettings;
   // Clear the form fields from any previous runs.
   document.getElementById('editMailArea').value = '';
   document.getElementById('editMailSubject').value = '';
-  // Copy the global application settings
-  electronGunSettings = arg.electronGunSettings;
+  // Check for mail from/reply to defaults
+  document.getElementById('editMailFrom').value =    ( ( electronGunSettings.hasOwnProperty( electronGunSettings.activeDomain ) ) && (
+    electronGunSettings[ electronGunSettings.activeDomain ].hasOwnProperty( 'mailFrom' ) ) ) ? electronGunSettings[ electronGunSettings.activeDomain ].mailFrom : '';
+  document.getElementById('editMailReplyTo').value = ( ( electronGunSettings.hasOwnProperty( electronGunSettings.activeDomain ) ) && (
+    electronGunSettings[ electronGunSettings.activeDomain ].hasOwnProperty( 'replyTo'  ) ) ) ? electronGunSettings[ electronGunSettings.activeDomain ].replyTo  : '';
   // Set the list name in the footer.
   document.getElementById('listName').innerHTML = electronGunSettings.mailingList;
 });
@@ -47,15 +52,27 @@ ipc.on('setupSendMail', function( event, arg) {
 function sendMessage() {
     // We found one place where the domain here matters.
     let mailgun = new mg({ privateApi: electronGunSettings.apikey, publicApi: electronGunSettings.pubkey, domainName: electronGunSettings.activeDomain } );
-    // Set up the mail transmission promise.
-    let smPromise = mailgun.sendEmail( {
+    // Build the mail object.
+    let message = {
       to: [ electronGunSettings.mailingList ],
       from: electronGunSettings.mailingList,
       subject: document.getElementById('editMailSubject').value,
       text: document.getElementById('editMailArea').value,
       html: document.getElementById('editMailArea').value,
       domain: electronGunSettings.activeDomain
-    } );
+    }
+
+    if ( document.getElementById('editMailReplyTo').value.length > 0 ) {
+      console.log( "Overriding Reply-To" );
+      message[ "h:Reply-To" ] = document.getElementById('editMailReplyTo').value;
+    }
+
+    if ( document.getElementById('editMailFrom').value.length > 0 ) {
+      message.from = document.getElementById('editMailFrom').value;
+    }
+
+    // Set up the mail transmission promise.
+    let smPromise = mailgun.sendEmail( message );
     // Crude, but usable until a design for update messages has been established.
-  smPromise.then( function( success ) { console.log(success); alert ("Message sent!")}, function (error) { console.log( error ); } );
+    smPromise.then( function( success ) { console.log(success); alert ("Message sent!")}, function (error) { console.log( error ); } );
 }
